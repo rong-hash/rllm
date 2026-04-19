@@ -116,8 +116,8 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     actor_rollout_ref.rollout.enforce_eager=True \
     actor_rollout_ref.rollout.temperature=1.0 \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
-    actor_rollout_ref.rollout.enable_sleep_mode=False \
-    actor_rollout_ref.rollout.free_cache_engine=False \
+    +actor_rollout_ref.rollout.enable_sleep_mode=False \
+    +actor_rollout_ref.rollout.free_cache_engine=False \
     actor_rollout_ref.rollout.checkpoint_engine.update_weights_bucket_megabytes=4096 \
     actor_rollout_ref.rollout.n=4 \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
