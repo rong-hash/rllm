@@ -1,0 +1,33 @@
+# rLLM + AgentGym SWE training image
+#
+# Build:
+#   docker build -f Dockerfile.agentgym -t rllm-agentgym .
+#
+# Push to internal registry:
+#   docker tag rllm-agentgym msh-m2-registry-vpc.ap-southeast-1.cr.aliyuncs.com/alignment/rllm-agentgym:latest
+#   docker push msh-m2-registry-vpc.ap-southeast-1.cr.aliyuncs.com/alignment/rllm-agentgym:latest
+#
+# Use with lputil:
+#   lputil submit --docker-image msh-m2-registry-vpc.ap-southeast-1.cr.aliyuncs.com/alignment/rllm-agentgym:latest ...
+
+FROM verlai/verl:vllm011.latest
+
+WORKDIR /workspace
+
+# 1) verl
+RUN git clone https://github.com/volcengine/verl.git && \
+    cd verl && git checkout v0.6.1 && pip install -e .
+
+# 2) rllm (copy local code instead of cloning — includes agentgym adapter)
+COPY . /workspace/rllm
+RUN cd /workspace/rllm && pip install -e .
+
+# 3) agentgym + swebench (internal packages for SWE environment)
+RUN pip install --index-url https://pypi.msh.team/simple/ \
+        msh-agentgym>=1.4.14 \
+        msh-swebench>=0.2.13
+
+# 4) Uninstall the wrong PyPI agentgym if present (conflicts with msh-agentgym)
+RUN pip uninstall -y agentgym 2>/dev/null; true
+
+CMD ["/bin/bash"]

@@ -6,7 +6,32 @@ import re
 try:
     from r2egym.agenthub.action import Action as SWEAction
 except ImportError:
-    SWEAction = None
+    # Fallback shim for the agentgym backend: provides the same minimal
+    # interface (from_string, to_xml_string, function_name, parameters) that
+    # SWEAgent uses, without requiring r2egym.
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class SWEAction:  # type: ignore[no-redef]
+        function_name: str = ""
+        parameters: dict = field(default_factory=dict)
+
+        @classmethod
+        def from_string(cls, action_str: str) -> "SWEAction":
+            if not action_str:
+                return cls(function_name="", parameters={})
+            from rllm.environments.swe.agentgym_tools import parse_xml_action
+            name, params = parse_xml_action(action_str)
+            return cls(function_name=name, parameters=params)
+
+        def to_xml_string(self) -> str:
+            if not self.function_name:
+                return ""
+            parts = [f"<function={self.function_name}>"]
+            for k, v in self.parameters.items():
+                parts.append(f"<parameter={k}>{v}</parameter>")
+            parts.append("</function>")
+            return "\n".join(parts)
 
 from rllm.agents.agent import Action, BaseAgent, Step, Trajectory
 from rllm.agents.system_prompts import SWE_SYSTEM_PROMPT, SWE_SYSTEM_PROMPT_FN_CALL, SWE_USER_PROMPT, SWE_USER_PROMPT_FN_CALL, SWEAGENT_SYSTEM_PROMPT, SWEAGENT_USER_PROMPT
