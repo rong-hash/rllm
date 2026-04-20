@@ -22,15 +22,9 @@ pip install --quiet \
 pip uninstall -y agentgym 2>/dev/null || true
 
 # rllm source is synced to moonfs (accessible from compute nodes)
-# Install with [verl] extra to pull in verl + vllm (default vllm==0.12)
+# Install with [verl] extra to pull in verl + vllm
 RLLM_SRC=${RLLM_SRC:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/rllm"}
 pip install -e "${RLLM_SRC}[verl]"
-
-# Force-upgrade vllm + transformers for Qwen3.5 support.
-# Qwen3.5 (model_type='qwen3_5') requires vllm>=0.17 and transformers>=4.57.
-# NOTE: this overrides the <=0.12 pin in rllm's pyproject; verl 0.7.1's vllm
-# integration may have API drift — monitor for import errors on startup.
-pip install --upgrade "vllm==0.18.1" "transformers>=4.57.0"
 
 # ── 1. Environment variables ──────────────────────────────────────────
 : "${WANDB_API_KEY:?WANDB_API_KEY must be set}"
@@ -97,7 +91,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.max_response_length=16384 \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
-    actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
+    actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/public-models-b0/Qwen/Qwen3-8B"} \
     actor_rollout_ref.hybrid_engine=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
