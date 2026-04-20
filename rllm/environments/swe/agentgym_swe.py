@@ -96,6 +96,14 @@ DOCKER_CONFIG: dict[str, dict] = {
         "image": "multi_swe:{id_lower}",
         "working_dir": "/testbed",  # overridden per-entry below
     },
+    # CodeV-R1: all 1551 tasks share the same public base image.
+    # Per-task testbed files (gold.v, port_info.json, run_test.py) are injected
+    # at reset time from fields stored in extra_info.
+    "codev-r1": {
+        "registry": "",
+        "image": "hdlc/sim:osvb",
+        "working_dir": "/testbed",
+    },
 }
 
 # Some image overrides (ported from mshrl).
@@ -150,7 +158,13 @@ def resolve_image_and_workdir(
             image_name = image_name.replace("swe_factory:", f"swe_factory_{lang}:")
 
     override = _IMAGE_OVERRIDES.get((key, instance_id))
-    full_image = override if override else f"{registry}/{image_name}"
+    if override:
+        full_image = override
+    elif registry:
+        full_image = f"{registry}/{image_name}"
+    else:
+        # No registry prefix — image is a bare DockerHub reference (e.g. codev-r1).
+        full_image = image_name
 
     # Working directory overrides.
     if key == "multi-swe":
@@ -378,10 +392,38 @@ class AgentGymSWEEnv(BaseEnv):
         await self.sandbox.start()
         logger.info("Sandbox started successfully.")
 
+        # Dataset-specific post-start setup (e.g. CodeV-R1 testbed injection).
+        await self._post_start_setup()
+
         self._file_backups = {}
         self.total_steps = 0
 
         return self.entry.get("problem_statement", "")
+
+    async def _post_start_setup(self) -> None:
+        """Hook for per-dataset sandbox preparation after ``sandbox.start()``.
+
+        CodeV-R1: inject per-task testbed files from ``extra_info`` so the
+        shared ``hdlc/sim:osvb`` image can serve all 1551 instances.
+        """
+        dataset_name = self.entry.get("dataset", "")
+        if dataset_name != "codev-r1":
+            return
+
+        await self.sandbox.ctrl.run(
+            ["/bin/bash", "-c", "mkdir -p /testbed/verif /testbed/rtl /tests /logs/verifier"],
+            capture_output=True, timeout=30, text=True, raise_on_timeout=False,
+        )
+        for rel_path, field in (
+            ("/testbed/verif/gold.v", "gold_v"),
+            ("/testbed/verif/port_info.json", "port_info"),
+            ("/testbed/verif/run_test.py", "run_test_py"),
+        ):
+            content = self.entry.get(field, "")
+            if content:
+                await self.sandbox.ctrl.write_text(rel_path, content)
+            else:
+                logger.warning("CodeV-R1 entry missing '%s' field.", field)
 
     async def _async_step(self, action_str: str) -> tuple[str, float, bool, dict]:
         from rllm.environments.swe.agentgym_tools import execute_action, parse_xml_action
@@ -475,6 +517,8 @@ class AgentGymSWEEnv(BaseEnv):
                 "swebench.harness_multilingual.grading_multi_swe",
                 "swebench.harness_multilingual.test_spec_multi_swe",
             )
+        elif key == "codev-r1":
+            report = await self._judge_codev_r1()
         else:
             logger.warning("No judge for dataset=%s, returning 0.", dataset_name)
             return 0.0
@@ -598,6 +642,37 @@ class AgentGymSWEEnv(BaseEnv):
         )
         output = (p.stdout or "") + (p.stderr or "")
         return get_eval_report(test_spec, output)
+
+    async def _judge_codev_r1(self) -> dict:
+        """Run the CodeV-R1 verification script and parse reward.json.
+
+        ``eval_sh`` (contents of ``tests/test.sh``) runs the Verilog
+        equivalence check via ``run_test.py`` already injected at reset, then
+        writes ``/logs/verifier/reward.json`` with a numeric ``reward`` field.
+        """
+        eval_script = self.entry.get("eval_sh", "")
+        if not eval_script:
+            return {"resolved": False, "raw_log_content": "codev-r1: missing eval_sh"}
+
+        await self.sandbox.ctrl.write_text("/tests/test.sh", eval_script)
+        val = await self.sandbox.ctrl.run(
+            ["/bin/bash", "/tests/test.sh"],
+            capture_output=True, timeout=self.reward_timeout,
+            text=True, raise_on_timeout=False,
+        )
+        log_str = (val.stderr or "") + (val.stdout or "")
+
+        try:
+            reward_json_text = await self.sandbox.ctrl.read_text(
+                "/logs/verifier/reward.json"
+            )
+            reward = float(json.loads(reward_json_text).get("reward", 0.0))
+            resolved = reward > 0.0
+        except Exception as e:
+            logger.warning("codev-r1: failed to read reward.json: %s", e)
+            resolved = False
+
+        return {"resolved": resolved, "raw_log_content": log_str}
 
     async def _run_eval_script_and_grade(self, eval_script: str, grade_fn) -> dict:
         """Write eval script to sandbox, run it, and grade the output."""
