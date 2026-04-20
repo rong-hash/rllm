@@ -43,8 +43,8 @@ export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1800
 RLLM_DIR=$(python3 -c "import rllm; import os; print(os.path.dirname(os.path.dirname(rllm.__file__)))")
 
 # ── 2. Data paths ─────────────────────────────────────────────────────
-TRAIN_DATA=${TRAIN_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_1551.parquet"}
-VAL_DATA=${VAL_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_1551.parquet"}
+TRAIN_DATA=${TRAIN_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_train1519.parquet"}
+VAL_DATA=${VAL_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_val32.parquet"}
 
 # ── 2.5 Multi-node Ray cluster setup ───────────────────────────────────
 # Launchpad injects NNODES, NODE_RANK, MASTER_ADDR for all nodes.
