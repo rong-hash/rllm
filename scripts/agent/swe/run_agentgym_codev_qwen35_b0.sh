@@ -43,17 +43,21 @@ pip install -e "${RLLM_SRC}"
 # overrides win.
 pip install --upgrade --no-deps \
     "git+https://github.com/verl-project/verl.git@main"
-# vllm 0.17/0.18 PyPI wheels pin transformers<5 (overly conservative — verl's
-# official image ships vllm 0.17 + transformers 5.3 in practice by using
-# --no-deps). Install vllm + transformers with --no-deps so pip's resolver
-# doesn't reject the combo, then fill in vllm's runtime-level deps manually.
-pip install --upgrade --no-deps \
-    "vllm==0.17.0" \
-    "transformers==5.3.0"
+# Install vllm 0.17 WITH all its deps (pip will auto-downgrade transformers
+# to <5 since vllm's metadata says so). This gives us compressed-tensors,
+# xgrammar, flashinfer-python, and all the other vllm runtime deps.
+pip install --upgrade "vllm==0.17.0"
 
-# vllm 0.17's own runtime deps that aren't already in the base image.
+# Now force transformers to 5.3 for qwen3_5 architecture support. vllm's
+# <5 pin is overly conservative — the verl team's official vllm017.latest
+# image ships with transformers 5.3 and it works at runtime.
+pip install --upgrade --no-deps --force-reinstall "transformers==5.3.0"
+
+# verl main's own runtime deps (we used --no-deps for the verl install above).
+pip install --upgrade accelerate peft pylatexenc torchdata
+
+# Qwen3.5 GDN linear attention + tensordict at version verl expects.
 pip install --upgrade \
-    blake3 py-cpuinfo \
     flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
