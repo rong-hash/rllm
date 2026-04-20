@@ -41,8 +41,12 @@ pip install -e "${RLLM_SRC}"
 # rllm's [verl] extra pins vllm<=0.12 and verl==0.7.1, both too old for qwen3_5.
 # We install the pinned versions here AFTER rllm's base install so these
 # overrides win.
+# Pin verl to commit b4c82633 (2026-04-03): includes Qwen3.5 FSDP support
+# (merged 2026-03-30 in PR #5682) but BEFORE the 2026-04-20 BREAKING refactor
+# (PR #6067) that moved fsdp_workers.py → engine_workers.py, which breaks
+# rllm's import `from verl.workers.fsdp_workers import AsyncActorRolloutRefWorker`.
 pip install --upgrade --no-deps \
-    "git+https://github.com/verl-project/verl.git@main"
+    "git+https://github.com/verl-project/verl.git@b4c82633"
 # Install vllm 0.17 WITH all its deps (pip will auto-downgrade transformers
 # to <5 since vllm's metadata says so). This gives us compressed-tensors,
 # xgrammar, flashinfer-python, and all the other vllm runtime deps.
