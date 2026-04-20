@@ -137,6 +137,8 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     trainer.test_freq=10 \
     trainer.default_hdfs_dir=null \
     trainer.default_local_dir=/mnt/moonfs/chenzhirong-b0/rllm-swe/checkpoints/test_codev_r1 \
+    trainer.log_val_generations=20 \
+    trainer.rollout_data_dir=/mnt/moonfs/chenzhirong-b0/rllm-swe/rollouts/test_codev_r1 \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
     +rllm.agent.agent_args.scaffold=coding \
