@@ -65,6 +65,24 @@ pip install --upgrade \
     flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
+# Base image ships flash-attn 2.8.1+msh (Moonshot custom build, ABI-matched
+# to torch 2.10+cu129.msh). The vllm 0.17 install likely replaced its .so
+# with a stock PyPI wheel that has an ABI mismatch:
+#   ImportError: flash_attn_2_cuda...undefined symbol: _ZN3c10..._cuda_check_implementation...
+# Uninstall so transformers falls back to torch's built-in SDPA (slower but
+# no ABI dependency). flash-linear-attention (Triton-based, for GDN layers)
+# is unaffected.
+pip uninstall -y flash-attn 2>/dev/null || true
+
+# flash-attn wheel from PyPI was built against stock torch ABI, but the base
+# image ships a Moonshot-custom torch build (torch 2.10+cu129.msh). The ABI
+# mismatch gives:
+#   ImportError: flash_attn_2_cuda...undefined symbol: _ZN3c104cuda29c10_cuda_check_implementation...
+# Uninstall the broken flash-attn so transformers falls back to torch's
+# built-in SDPA (slower than flash-attn-2 but has no ABI dependency).
+# flash-linear-attention is Triton-based and unaffected.
+pip uninstall -y flash-attn 2>/dev/null || true
+
 # ── 1. Environment variables ──────────────────────────────────────────
 : "${WANDB_API_KEY:?WANDB_API_KEY must be set}"
 export VLLM_ATTENTION_BACKEND=FLASH_ATTN
