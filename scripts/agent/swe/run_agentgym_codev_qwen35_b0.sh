@@ -67,6 +67,8 @@ RLLM_DIR=$(python3 -c "import rllm; import os; print(os.path.dirname(os.path.dir
 # ── 2. Data paths ─────────────────────────────────────────────────────
 TRAIN_DATA=${TRAIN_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_train1519.parquet"}
 VAL_DATA=${VAL_DATA:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/data/codev_r1_val32.parquet"}
+CKPT_DIR=${CKPT_DIR:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/checkpoints/test_codev_r1_qwen35_9b"}
+ROLLOUT_DIR=${ROLLOUT_DIR:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/rollouts/test_codev_r1_qwen35_9b"}
 
 # ── 2.5 Multi-node Ray cluster setup ───────────────────────────────────
 NNODES=${NNODES:-1}
@@ -172,9 +174,9 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     trainer.save_freq=10 \
     trainer.test_freq=10 \
     trainer.default_hdfs_dir=null \
-    trainer.default_local_dir=/mnt/moonfs/chenzhirong-b0/rllm-swe/checkpoints/test_codev_r1_qwen35_9b \
+    trainer.default_local_dir="${CKPT_DIR}" \
     trainer.log_val_generations=20 \
-    trainer.rollout_data_dir=/mnt/moonfs/chenzhirong-b0/rllm-swe/rollouts/test_codev_r1_qwen35_9b \
+    trainer.rollout_data_dir="${ROLLOUT_DIR}" \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
     +rllm.agent.agent_args.scaffold=coding \
