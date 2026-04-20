@@ -43,14 +43,18 @@ pip install -e "${RLLM_SRC}"
 # overrides win.
 pip install --upgrade --no-deps \
     "git+https://github.com/verl-project/verl.git@main"
-# vllm 0.18 pins transformers<5 (known incompatibility with qwen3_5 in tf>=5.3).
-# Use 0.17.0 — the community-validated combo per verl PR #5381 discussion:
-#   @wuxibin89 (verl committer): verlai/verl:vllm017.latest + transformers==5.3.0
-#   @Code4Graph: torch 2.10 + vllm 0.17.0 + Qwen3.5-9B GRPO success
-pip install --upgrade \
+# vllm 0.17/0.18 PyPI wheels pin transformers<5 (overly conservative — verl's
+# official image ships vllm 0.17 + transformers 5.3 in practice by using
+# --no-deps). Install vllm + transformers with --no-deps so pip's resolver
+# doesn't reject the combo, then fill in vllm's runtime-level deps manually.
+pip install --upgrade --no-deps \
     "vllm==0.17.0" \
-    "transformers==5.3.0" \
-    "flash-linear-attention" \
+    "transformers==5.3.0"
+
+# vllm 0.17's own runtime deps that aren't already in the base image.
+pip install --upgrade \
+    blake3 py-cpuinfo \
+    flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
 # ── 1. Environment variables ──────────────────────────────────────────
