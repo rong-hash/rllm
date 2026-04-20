@@ -139,6 +139,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     trainer.default_local_dir=/mnt/moonfs/chenzhirong-b0/rllm-swe/checkpoints/test_codev_r1 \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
+    +rllm.agent.agent_args.scaffold=coding \
     rllm.agent.max_steps=20 \
     rllm.agent.overlong_filter=True \
     rllm.agent.trajectory_timeout=5400 \

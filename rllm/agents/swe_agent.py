@@ -34,7 +34,7 @@ except ImportError:
             return "\n".join(parts)
 
 from rllm.agents.agent import Action, BaseAgent, Step, Trajectory
-from rllm.agents.system_prompts import SWE_SYSTEM_PROMPT, SWE_SYSTEM_PROMPT_FN_CALL, SWE_USER_PROMPT, SWE_USER_PROMPT_FN_CALL, SWEAGENT_SYSTEM_PROMPT, SWEAGENT_USER_PROMPT
+from rllm.agents.system_prompts import CODING_SYSTEM_PROMPT, CODING_USER_PROMPT, SWE_SYSTEM_PROMPT, SWE_SYSTEM_PROMPT_FN_CALL, SWE_USER_PROMPT, SWE_USER_PROMPT_FN_CALL, SWEAGENT_SYSTEM_PROMPT, SWEAGENT_USER_PROMPT
 
 
 def parse_oai_response(response):
@@ -87,13 +87,17 @@ class SWEAgent(BaseAgent):
         self.use_fn_calling = use_fn_calling
         self.format_model_response = format_model_response
         self.scaffold = scaffold
-        assert scaffold in ["r2egym", "sweagent"], f"Invalid scaffold: {scaffold}, must be one of ['r2egym', 'sweagent']"
+        assert scaffold in ["r2egym", "sweagent", "coding"], f"Invalid scaffold: {scaffold}, must be one of ['r2egym', 'sweagent', 'coding']"
         self.system_prompt = SWE_SYSTEM_PROMPT_FN_CALL if use_fn_calling else SWE_SYSTEM_PROMPT
         if scaffold == "sweagent":
             self.system_prompt = SWEAGENT_SYSTEM_PROMPT
+        elif scaffold == "coding":
+            self.system_prompt = CODING_SYSTEM_PROMPT
         self.user_prompt_template = SWE_USER_PROMPT_FN_CALL if use_fn_calling else SWE_USER_PROMPT
         if scaffold == "sweagent":
             self.user_prompt_template = SWEAGENT_USER_PROMPT
+        elif scaffold == "coding":
+            self.user_prompt_template = CODING_USER_PROMPT
         self.token_warning_threshold = 1e9
         if kwargs.get("token_warning_threshold") is not None:
             self.token_warning_threshold = kwargs["token_warning_threshold"]
