@@ -43,9 +43,13 @@ pip install -e "${RLLM_SRC}"
 # overrides win.
 pip install --upgrade --no-deps \
     "git+https://github.com/verl-project/verl.git@main"
+# vllm 0.18 pins transformers<5 (known incompatibility with qwen3_5 in tf>=5.3).
+# Use 0.17.0 — the community-validated combo per verl PR #5381 discussion:
+#   @wuxibin89 (verl committer): verlai/verl:vllm017.latest + transformers==5.3.0
+#   @Code4Graph: torch 2.10 + vllm 0.17.0 + Qwen3.5-9B GRPO success
 pip install --upgrade \
-    "vllm==0.18.0" \
-    "transformers>=5.3.0" \
+    "vllm==0.17.0" \
+    "transformers==5.3.0" \
     "flash-linear-attention" \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
