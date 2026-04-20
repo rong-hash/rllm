@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import math
 import os
 import uuid
@@ -470,6 +471,12 @@ class AgentPPOTrainer(RayPPOTrainer):
         rewards_lst = []
         data_source_lst = []
         uid_lst = []
+        # Accumulate (input_text, output_text, score) across val batches for
+        # wandb val/generations table + JSONL dump.
+        sample_inputs: list[str] = []
+        sample_outputs: list[str] = []
+        sample_scores: list[float] = []
+        sample_uids: list[str] = []
         for test_data in self.val_dataloader:
             test_batch = DataProto.from_single_dict(test_data)
             test_batch.non_tensor_batch["uid"] = np.array([str(uuid.uuid4()) for _ in range(len(test_batch.batch))], dtype=object)
@@ -500,6 +507,18 @@ class AgentPPOTrainer(RayPPOTrainer):
             rewards_lst.append(reward_tensor.sum(-1).cpu())
             data_source_lst.append(test_batch.non_tensor_batch.get("data_source", ["unknown"] * reward_tensor.shape[0]))
             uid_lst.append(test_batch.non_tensor_batch["uid"])
+
+            # Collect decoded text for downstream dump / wandb table.
+            try:
+                input_ids = test_batch.batch["prompts"]
+                output_ids = test_batch.batch["responses"]
+                sample_inputs.extend(self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids)
+                sample_outputs.extend(self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids)
+                sample_scores.extend(reward_tensor.sum(-1).cpu().tolist())
+                sample_uids.extend(test_batch.non_tensor_batch["uid"].tolist())
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.warning("val trajectory collection failed (non-fatal): %s", e)
 
         reward_tensor = torch.cat(rewards_lst, dim=0)  # (batch_size,)
         data_sources = np.concatenate(data_source_lst, axis=0)
@@ -533,6 +552,28 @@ class AgentPPOTrainer(RayPPOTrainer):
             rewards_array = np.array(rewards)
             rewards_array = np.clip(rewards_array, 0, 1)
             metric_dict[f"val/test_score/{data_source}"] = np.mean(rewards_array)
+
+        # wandb val/generations table (inherited helper from verl's ray_trainer).
+        if self.config.trainer.get("log_val_generations", 0) > 0 and sample_inputs:
+            try:
+                self._maybe_log_val_generations(
+                    inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores,
+                )
+            except Exception as e:
+                logging.getLogger(__name__).warning("_maybe_log_val_generations failed (non-fatal): %s", e)
+
+        # JSONL dump of all val rollouts for this step.
+        rollout_dir = self.config.trainer.get("rollout_data_dir", None)
+        if rollout_dir and sample_inputs:
+            try:
+                os.makedirs(rollout_dir, exist_ok=True)
+                dump_path = os.path.join(rollout_dir, f"val_{self.global_steps}.jsonl")
+                with open(dump_path, "w") as f:
+                    for uid, inp, out, score in zip(sample_uids, sample_inputs, sample_outputs, sample_scores, strict=True):
+                        f.write(json.dumps({"uid": uid, "input": inp, "output": out, "score": score}) + "\n")
+                logging.getLogger(__name__).info("Dumped %d val trajectories → %s", len(sample_inputs), dump_path)
+            except Exception as e:
+                logging.getLogger(__name__).warning("val JSONL dump failed (non-fatal): %s", e)
 
         for data_source, pass_rates in data_source_uid_pass_rates.items():
             pass_k_lst = []
