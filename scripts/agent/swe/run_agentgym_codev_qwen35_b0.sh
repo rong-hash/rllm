@@ -365,6 +365,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     algorithm.kl_ctrl.kl_coef=0.001 \
     rllm.mask_truncated_samples=False \
     trainer.critic_warmup=0 \
+    trainer.use_legacy_worker_impl=enable \
     trainer.logger=['console','wandb'] \
     trainer.project_name='rllm-codev-agentgym' \
     trainer.experiment_name='test_codev_r1_qwen35_9b' \
