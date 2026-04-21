@@ -240,6 +240,46 @@ with open(cfg_path, 'w') as f:
 print(f'Forced _attn_implementation=sdpa in {cfg_path}')
 "
 
+# Patch verl's compute_data_metrics to handle empty valid_adv. When
+# overlong_filter masks out ALL trajectories in a batch (e.g. early Qwen3.5
+# training where nothing finishes within max_steps), response_mask becomes
+# all-zero → masked_select returns empty tensor → torch.max/min/mean crash.
+# Replace the three aggregation calls with safe variants that return NaN.
+VERL_MU=$(python3 -c "import verl.trainer.ppo.metric_utils as m; print(m.__file__)")
+echo "Patching compute_data_metrics in ${VERL_MU}"
+python3 - <<PYEOF
+import pathlib
+p = pathlib.Path("${VERL_MU}")
+src = p.read_text()
+marker = "# _RLLM_PATCHED_EMPTY_ADV"
+if marker not in src:
+    old = (
+        '    valid_adv = torch.masked_select(advantages, response_mask)\n'
+        '    valid_returns = torch.masked_select(returns, response_mask)'
+    )
+    new = (
+        '    valid_adv = torch.masked_select(advantages, response_mask)\n'
+        '    valid_returns = torch.masked_select(returns, response_mask)\n'
+        f'    {marker}\n'
+        '    import math as _math\n'
+        '    def _safe_item(op, t):\n'
+        '        return float("nan") if t.numel() == 0 else op(t).detach().item()\n'
+    )
+    assert old in src, f"expected valid_adv pattern not found in {p}"
+    src = src.replace(old, new, 1)
+    # Replace the 6 torch.ops(valid_*).detach().item() calls
+    for fn, op in [("mean", "torch.mean"), ("max", "torch.max"), ("min", "torch.min")]:
+        for var in ["valid_adv", "valid_returns"]:
+            old_line = f"{op}({var}).detach().item()"
+            new_line = f"_safe_item({op}, {var})"
+            assert old_line in src, f"expected {old_line} in {p}"
+            src = src.replace(old_line, new_line, 1)
+    p.write_text(src)
+    print(f"Patched compute_data_metrics in {p}")
+else:
+    print(f"{p} already patched")
+PYEOF
+
 # flash-attn wheel from PyPI was built against stock torch ABI, but the base
 # image ships a Moonshot-custom torch build (torch 2.10+cu129.msh). The ABI
 # mismatch gives:
