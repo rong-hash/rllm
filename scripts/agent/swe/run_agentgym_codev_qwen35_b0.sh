@@ -374,7 +374,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.train_batch_size=8 \
     data.val_batch_size=16 \
     data.max_prompt_length=4096 \
-    data.max_response_length=12288 \
+    data.max_response_length=30000 \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
     actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
