@@ -67,6 +67,37 @@ pip install --upgrade \
     flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
+# Add .keys() method to verl's DataProto class. Multiple places in verl
+# treat DataProto as TensorDict and call data.keys() (maybe_fix_3d_position_ids,
+# engine_workers.infer_batch, etc.). Add a keys() method that returns all keys
+# across the three underlying collections.
+VERL_PROTOCOL=$(python3 -c "import verl.protocol as m; print(m.__file__)")
+echo "Patching DataProto in ${VERL_PROTOCOL} to add keys() method"
+python3 - <<PYEOF
+import pathlib
+p = pathlib.Path("${VERL_PROTOCOL}")
+src = p.read_text()
+marker = "# _RLLM_PATCHED_DATAPROTO_KEYS"
+if marker not in src:
+    # Inject a keys() method into DataProto class. Find the class definition
+    # and add the method right after the 'class DataProto' line.
+    old = "class DataProto:"
+    new = (
+        "class DataProto:\n"
+        f"    {marker}\n"
+        "    def keys(self):\n"
+        "        return list(self.batch.keys()) + list(self.non_tensor_batch.keys()) + list(self.meta_info.keys())\n"
+        "    def __contains__(self, key):\n"
+        "        return key in self.batch.keys() or key in self.non_tensor_batch or key in self.meta_info\n"
+    )
+    assert old in src, f"expected 'class DataProto:' not found in {p}"
+    src = src.replace(old, new, 1)
+    p.write_text(src)
+    print(f"Added keys()/__contains__ to DataProto in {p}")
+else:
+    print(f"{p} already patched")
+PYEOF
+
 # Patch verl's engine_workers.infer_batch to skip the buggy tu.pop() call.
 # verl main (b4c82633) has an API mismatch: tu.pop expects tensordict-style
 # pop(key, default) but DataProto.pop uses list-based pop(batch_keys=[...]).
