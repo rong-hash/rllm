@@ -80,16 +80,30 @@ python3 - <<PYEOF
 import pathlib
 p = pathlib.Path("${VERL_ENGINE_WORKERS}")
 src = p.read_text()
-marker = "# _RLLM_PATCHED_NO_LORA_ADAPTER"
-if marker not in src:
+
+# Patch 1: replace buggy tu.pop (DataProto API mismatch, see above).
+marker1 = "# _RLLM_PATCHED_NO_LORA_ADAPTER"
+if marker1 not in src:
     old = 'no_lora_adapter = tu.pop(data, key="no_lora_adapter", default=False)'
-    new = f'no_lora_adapter = False  {marker}'
-    assert old in src, f"expected pattern not found in {p}"
+    new = f'no_lora_adapter = False  {marker1}'
+    assert old in src, f"expected pattern 1 not found in {p}"
     src = src.replace(old, new)
-    p.write_text(src)
-    print(f"Patched {p}: replaced tu.pop(no_lora_adapter) with False")
-else:
-    print(f"{p} already patched")
+
+# Patch 2: replace data.keys() — DataProto has no .keys() method. Check all
+# three underlying collections (batch tensordict, non_tensor_batch, meta_info).
+marker2 = "# _RLLM_PATCHED_DATA_KEYS"
+if marker2 not in src:
+    old = "if key not in data.keys():"
+    new = (
+        "if key not in data.batch.keys() and "
+        "key not in data.non_tensor_batch and "
+        f"key not in data.meta_info:  {marker2}"
+    )
+    assert old in src, f"expected pattern 2 not found in {p}"
+    src = src.replace(old, new)
+
+p.write_text(src)
+print(f"Patched {p}")
 PYEOF
 
 # flash-attn ABI is a moving target against the Moonshot-custom torch build.
