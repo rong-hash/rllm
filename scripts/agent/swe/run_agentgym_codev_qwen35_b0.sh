@@ -66,14 +66,11 @@ pip install --upgrade \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
 # Base image ships flash-attn 2.8.1+msh (Moonshot custom build, ABI-matched
-# to torch 2.10+cu129.msh). The vllm 0.17 install replaced it with a stock
-# PyPI wheel that has ABI mismatch:
-#   ImportError: flash_attn_2_cuda...undefined symbol: _ZN3c10..._cuda_check_implementation...
-# Force-reinstall from the Moonshot pypi index to restore the msh-built .so.
-# (The base container has both ksyun and msh indexes configured; -i forces msh.)
-pip install --upgrade --no-deps --force-reinstall \
-    -i https://pypi.msh.team/simple/ \
-    flash-attn
+# to torch 2.9+cu129.msh). The vllm 0.17 install replaced it and broke the
+# import. Force-reinstall the ABI-matched msh wheel by direct URL (pip's
+# version resolver doesn't handle the long local-version string reliably).
+pip install --force-reinstall --no-deps \
+    "https://pypi.msh.team/packages/flash-attn/2.8.1+msh.9230329.torch29cu129.cxx11.abi/flash_attn-2.8.1+msh.9230329.torch29cu129.cxx11.abi-cp312-cp312-linux_x86_64.whl"
 
 # flash-attn wheel from PyPI was built against stock torch ABI, but the base
 # image ships a Moonshot-custom torch build (torch 2.10+cu129.msh). The ABI
