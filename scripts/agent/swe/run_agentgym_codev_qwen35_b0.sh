@@ -67,6 +67,34 @@ pip install --upgrade \
     flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
+# Patch verl's tu.assign_non_tensor to accept DataProto (route to meta_info).
+# Called from many places in engine_workers + engine/fsdp/transformer_impl
+# where 'data' is a DataProto instead of the expected TensorDict.
+VERL_TU=$(python3 -c "import verl.utils.tensordict_utils as m; print(m.__file__)")
+echo "Patching assign_non_tensor in ${VERL_TU}"
+python3 - <<PYEOF
+import pathlib
+p = pathlib.Path("${VERL_TU}")
+src = p.read_text()
+marker = "# _RLLM_PATCHED_ASSIGN_NON_TENSOR_ACCEPTS_DATAPROTO"
+if marker not in src:
+    old = '    assert isinstance(tensor_dict, TensorDict), "input dict must be a TensorDict"\n    for key, val in kwargs.items():'
+    new = (
+        f"    {marker}\n"
+        "    if hasattr(tensor_dict, 'meta_info') and hasattr(tensor_dict, 'non_tensor_batch'):\n"
+        "        tensor_dict.meta_info.update(kwargs)\n"
+        "        return tensor_dict\n"
+        '    assert isinstance(tensor_dict, TensorDict), "input dict must be a TensorDict"\n'
+        "    for key, val in kwargs.items():"
+    )
+    assert old in src, f"expected assign_non_tensor pattern not found in {p}"
+    src = src.replace(old, new, 1)
+    p.write_text(src)
+    print(f"Patched assign_non_tensor in {p}")
+else:
+    print(f"{p} already patched")
+PYEOF
+
 # Add .keys() method to verl's DataProto class. Multiple places in verl
 # treat DataProto as TensorDict and call data.keys() (maybe_fix_3d_position_ids,
 # engine_workers.infer_batch, etc.). Add a keys() method that returns all keys
