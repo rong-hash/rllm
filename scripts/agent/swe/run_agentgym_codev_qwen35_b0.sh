@@ -69,9 +69,10 @@ pip install --upgrade \
 # to torch 2.9+cu129.msh). The vllm 0.17 install replaced it and broke the
 # import. Download the ABI-matched msh wheel to a local path, then install
 # from the local file (URL-embedded '+' chars confused pip's URL parser).
-FA_WHL=/tmp/flash_attn_msh.whl
-curl -fsSL -o "${FA_WHL}" \
-    "https://pypi.msh.team/packages/flash-attn/2.8.1+msh.9230329.torch29cu129.cxx11.abi/flash_attn-2.8.1+msh.9230329.torch29cu129.cxx11.abi-cp312-cp312-linux_x86_64.whl"
+# pip requires PEP 427 wheel filename — keep the original name from the URL.
+FA_URL="https://pypi.msh.team/packages/flash-attn/2.8.1+msh.9230329.torch29cu129.cxx11.abi/flash_attn-2.8.1+msh.9230329.torch29cu129.cxx11.abi-cp312-cp312-linux_x86_64.whl"
+FA_WHL="/tmp/$(basename "${FA_URL}")"
+curl -fsSL -o "${FA_WHL}" "${FA_URL}"
 ls -lh "${FA_WHL}"
 pip install --force-reinstall --no-deps "${FA_WHL}"
 
