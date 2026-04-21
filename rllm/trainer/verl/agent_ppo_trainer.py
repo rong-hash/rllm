@@ -316,6 +316,12 @@ class AgentPPOTrainer(RayPPOTrainer):
 
                         # recompute old_log_probs
                         with marked_timer("old_log_prob", timing_raw, color="blue"):
+                            # verl main's engine_workers expects a 'loss_mask' key but
+                            # rllm only sets 'response_mask'. They're semantically
+                            # the same in RL (mask of response tokens to include in
+                            # loss), so alias one to the other.
+                            if "loss_mask" not in batch.batch.keys() and "response_mask" in batch.batch.keys():
+                                batch.batch["loss_mask"] = batch.batch["response_mask"]
                             old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
                             entropys = old_log_prob.batch["entropys"]
                             response_masks = batch.batch["response_mask"]
