@@ -67,10 +67,17 @@ pip install --upgrade \
 
 # Base image ships flash-attn 2.8.1+msh (Moonshot custom build, ABI-matched
 # to torch 2.9+cu129.msh). The vllm 0.17 install replaced it and broke the
-# import. Force-reinstall the ABI-matched msh wheel by direct URL (pip's
-# version resolver doesn't handle the long local-version string reliably).
-pip install --force-reinstall --no-deps \
+# import. Download the ABI-matched msh wheel to a local path, then install
+# from the local file (URL-embedded '+' chars confused pip's URL parser).
+FA_WHL=/tmp/flash_attn_msh.whl
+curl -fsSL -o "${FA_WHL}" \
     "https://pypi.msh.team/packages/flash-attn/2.8.1+msh.9230329.torch29cu129.cxx11.abi/flash_attn-2.8.1+msh.9230329.torch29cu129.cxx11.abi-cp312-cp312-linux_x86_64.whl"
+ls -lh "${FA_WHL}"
+pip install --force-reinstall --no-deps "${FA_WHL}"
+
+# Verify the install actually took — fail fast if import fails so the error
+# surfaces here in the install log rather than deep inside worker init.
+python3 -c "import flash_attn; print('flash_attn OK:', flash_attn.__version__)"
 
 # flash-attn wheel from PyPI was built against stock torch ABI, but the base
 # image ships a Moonshot-custom torch build (torch 2.10+cu129.msh). The ABI
