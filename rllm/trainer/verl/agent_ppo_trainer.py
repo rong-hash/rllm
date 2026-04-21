@@ -322,6 +322,11 @@ class AgentPPOTrainer(RayPPOTrainer):
                             # loss), so alias one to the other.
                             if "loss_mask" not in batch.batch.keys() and "response_mask" in batch.batch.keys():
                                 batch.batch["loss_mask"] = batch.batch["response_mask"]
+                            # verl main's prepare_model_inputs reads
+                            # micro_batch["temperature"]; verl's own trainer
+                            # stuffs it into meta_info before compute_log_prob.
+                            # Mirror that here.
+                            batch.meta_info["temperature"] = self.config.actor_rollout_ref.rollout.temperature
                             old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
                             entropys = old_log_prob.batch["entropys"]
                             response_masks = batch.batch["response_mask"]
