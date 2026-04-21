@@ -26,7 +26,13 @@ class ChatTemplateParser:
         self.generation_prompt = self._get_generation_prompt(tokenizer)
 
     def _get_generation_prompt(self, tokenizer):
-        messages = [{"role": "assistant", "content": ""}]
+        # Qwen3.5's chat template requires a user message or it raises
+        # "No user query found in messages". Add a dummy user before the
+        # assistant — the diff (generation prompt suffix) is unaffected.
+        messages = [
+            {"role": "user", "content": ""},
+            {"role": "assistant", "content": ""},
+        ]
 
         with_prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
         without_prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=False, tokenize=False)
