@@ -60,6 +60,31 @@ pip install --upgrade --no-deps --force-reinstall "transformers==5.3.0"
 # verl main's own runtime deps (we used --no-deps for the verl install above).
 pip install --upgrade accelerate peft pylatexenc torchdata
 
+# Patch verl's engine_workers.infer_batch to skip the buggy tu.pop() call.
+# verl main (b4c82633) has an API mismatch: tu.pop expects tensordict-style
+# pop(key, default) but DataProto.pop uses list-based pop(batch_keys=[...]).
+# Root cause: tu.pop(data, key='no_lora_adapter', default=False) on a
+# DataProto iterates chars of the key string and asserts each in batch.keys().
+# We're not using LoRA, so hard-code no_lora_adapter=False at the verl source
+# level. Source patch applies to all Ray workers (same .py file).
+VERL_ENGINE_WORKERS=$(python3 -c "import verl.workers.engine_workers as m; print(m.__file__)")
+echo "Patching engine_workers.infer_batch in ${VERL_ENGINE_WORKERS}"
+python3 - <<PYEOF
+import pathlib
+p = pathlib.Path("${VERL_ENGINE_WORKERS}")
+src = p.read_text()
+marker = "# _RLLM_PATCHED_NO_LORA_ADAPTER"
+if marker not in src:
+    old = 'no_lora_adapter = tu.pop(data, key="no_lora_adapter", default=False)'
+    new = f'no_lora_adapter = False  {marker}'
+    assert old in src, f"expected pattern not found in {p}"
+    src = src.replace(old, new)
+    p.write_text(src)
+    print(f"Patched {p}: replaced tu.pop(no_lora_adapter) with False")
+else:
+    print(f"{p} already patched")
+PYEOF
+
 # Qwen3.5 GDN linear attention + tensordict at version verl expects.
 pip install --upgrade \
     flash-linear-attention \
