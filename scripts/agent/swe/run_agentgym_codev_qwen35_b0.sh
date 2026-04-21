@@ -92,10 +92,29 @@ if marker not in src:
     )
     assert old in src, f"expected 'class DataProto:' not found in {p}"
     src = src.replace(old, new, 1)
-    p.write_text(src)
-    print(f"Added keys()/__contains__ to DataProto in {p}")
-else:
-    print(f"{p} already patched")
+
+# Extend __getitem__ to support string keys (returns from batch/non_tensor/meta).
+marker_gi = "# _RLLM_PATCHED_DATAPROTO_GETITEM"
+if marker_gi not in src:
+    old = '        else:\n            raise TypeError(f"Indexing with {type(item)} is not supported")'
+    new = (
+        "        elif isinstance(item, str):\n"
+        f"            {marker_gi}\n"
+        "            if item in self.batch.keys():\n"
+        "                return self.batch[item]\n"
+        "            if item in self.non_tensor_batch:\n"
+        "                return self.non_tensor_batch[item]\n"
+        "            if item in self.meta_info:\n"
+        "                return self.meta_info[item]\n"
+        "            raise KeyError(item)\n"
+        "        else:\n"
+        '            raise TypeError(f"Indexing with {type(item)} is not supported")'
+    )
+    assert old in src, f"expected __getitem__ raise pattern not found in {p}"
+    src = src.replace(old, new, 1)
+
+p.write_text(src)
+print(f"Patched DataProto in {p}")
 PYEOF
 
 # Patch verl's engine_workers.infer_batch to skip the buggy tu.pop() call.
