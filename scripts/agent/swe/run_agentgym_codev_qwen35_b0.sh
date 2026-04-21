@@ -320,6 +320,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
     actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
+    +actor_rollout_ref.model.override_config.attn_implementation=sdpa \
     actor_rollout_ref.hybrid_engine=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
