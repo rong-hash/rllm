@@ -249,6 +249,24 @@ print(f'Forced _attn_implementation=sdpa in {cfg_path}')
 # flash-linear-attention is Triton-based and unaffected.
 pip uninstall -y flash-attn 2>/dev/null || true
 
+# The image's cuDNN install is broken (CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED
+# on conv3d / any cuDNN backend call). verl's qwen3_5 wrapper does a
+# dummy visual tower forward for text-only batches (FSDP param-touch trick),
+# which hits F.conv3d → cuDNN → crash. Disable cuDNN globally via
+# sitecustomize.py so every Python process in this job (driver + Ray workers)
+# picks it up. Torch falls back to native CUDA kernels (slower conv, same
+# matmul since matmul uses cuBLAS not cuDNN).
+SITECUSTOMIZE=$(python3 -c "import site; print(site.getsitepackages()[0])")/sitecustomize.py
+cat > "${SITECUSTOMIZE}" <<'SITECUSTOMIZE_EOF'
+# _RLLM_DISABLE_CUDNN — injected by run_agentgym_codev_qwen35_b0.sh
+try:
+    import torch
+    torch.backends.cudnn.enabled = False
+except Exception:
+    pass
+SITECUSTOMIZE_EOF
+echo "Wrote ${SITECUSTOMIZE} (disables cuDNN globally)"
+
 # ── 1. Environment variables ──────────────────────────────────────────
 : "${WANDB_API_KEY:?WANDB_API_KEY must be set}"
 export VLLM_ATTENTION_BACKEND=FLASH_ATTN
