@@ -117,6 +117,14 @@ if marker not in src:
         "        return list(self.batch.keys()) + list(self.non_tensor_batch.keys()) + list(self.meta_info.keys())\n"
         "    def __contains__(self, key):\n"
         "        return key in self.batch.keys() or key in self.non_tensor_batch or key in self.meta_info\n"
+        "    def get(self, key, default=None):\n"
+        "        if key in self.batch.keys():\n"
+        "            return self.batch[key]\n"
+        "        if key in self.non_tensor_batch:\n"
+        "            return self.non_tensor_batch[key]\n"
+        "        if key in self.meta_info:\n"
+        "            return self.meta_info[key]\n"
+        "        return default\n"
     )
     assert old in src, f"expected 'class DataProto:' not found in {p}"
     src = src.replace(old, new, 1)
