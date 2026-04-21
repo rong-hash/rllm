@@ -232,9 +232,9 @@ import json, sys
 cfg_path = '${MODEL}/config.json' if '${MODEL}' else '/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B/config.json'
 with open(cfg_path) as f:
     cfg = json.load(f)
-cfg['_attn_implementation'] = 'eager'
+cfg['_attn_implementation'] = 'sdpa'
 if 'text_config' in cfg:
-    cfg['text_config']['_attn_implementation'] = 'eager'
+    cfg['text_config']['_attn_implementation'] = 'sdpa'
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
 print(f'Forced _attn_implementation=sdpa in {cfg_path}')
@@ -338,7 +338,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
     actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
-    +actor_rollout_ref.model.override_config.attn_implementation=eager \
+    +actor_rollout_ref.model.override_config.attn_implementation=sdpa \
     actor_rollout_ref.hybrid_engine=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=False \
