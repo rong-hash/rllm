@@ -65,20 +65,26 @@ pip install --upgrade \
     flash-linear-attention \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
-# Base image ships flash-attn 2.8.1+msh (Moonshot custom build, ABI-matched
-# to torch 2.9+cu129.msh). The vllm 0.17 install replaced it and broke the
-# import. Download the ABI-matched msh wheel to a local path, then install
-# from the local file (URL-embedded '+' chars confused pip's URL parser).
-# pip requires PEP 427 wheel filename — keep the original name from the URL.
-FA_URL="https://pypi.msh.team/packages/flash-attn/2.8.1+msh.9230329.torch29cu129.cxx11.abi/flash_attn-2.8.1+msh.9230329.torch29cu129.cxx11.abi-cp312-cp312-linux_x86_64.whl"
-FA_WHL="/tmp/$(basename "${FA_URL}")"
-curl -fsSL -o "${FA_WHL}" "${FA_URL}"
-ls -lh "${FA_WHL}"
-pip install --force-reinstall --no-deps "${FA_WHL}"
-
-# Verify the install actually took — fail fast if import fails so the error
-# surfaces here in the install log rather than deep inside worker init.
-python3 -c "import flash_attn; print('flash_attn OK:', flash_attn.__version__)"
+# flash-attn ABI is a moving target against the Moonshot-custom torch build.
+# Every version we tried (base image's 2.8.1+msh, pypi.msh.team's
+# 2.8.1+msh.9230329.torch29cu129.cxx11.abi) fails to resolve c10::cuda
+# symbols at import time. Bypass the problem entirely: patch the model's
+# config.json to force _attn_implementation=sdpa before training starts.
+# transformers then skips the flash_attn check and uses torch's built-in
+# scaled_dot_product_attention for the full_attention layers. The GDN
+# (linear_attention) layers use flash-linear-attention independently.
+python3 -c "
+import json, sys
+cfg_path = '${MODEL}/config.json' if '${MODEL}' else '/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B/config.json'
+with open(cfg_path) as f:
+    cfg = json.load(f)
+cfg['_attn_implementation'] = 'sdpa'
+if 'text_config' in cfg:
+    cfg['text_config']['_attn_implementation'] = 'sdpa'
+with open(cfg_path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+print(f'Forced _attn_implementation=sdpa in {cfg_path}')
+"
 
 # flash-attn wheel from PyPI was built against stock torch ABI, but the base
 # image ships a Moonshot-custom torch build (torch 2.10+cu129.msh). The ABI
