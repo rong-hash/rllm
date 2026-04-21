@@ -60,6 +60,13 @@ pip install --upgrade --no-deps --force-reinstall "transformers==5.3.0"
 # verl main's own runtime deps (we used --no-deps for the verl install above).
 pip install --upgrade accelerate peft pylatexenc torchdata
 
+# Qwen3.5 GDN linear attention + tensordict at version verl expects.
+# Install BEFORE the engine_workers sed-patch so `import verl.workers.*` works
+# (verl's __init__ imports protocol which imports tensordict).
+pip install --upgrade \
+    flash-linear-attention \
+    "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
+
 # Patch verl's engine_workers.infer_batch to skip the buggy tu.pop() call.
 # verl main (b4c82633) has an API mismatch: tu.pop expects tensordict-style
 # pop(key, default) but DataProto.pop uses list-based pop(batch_keys=[...]).
@@ -84,11 +91,6 @@ if marker not in src:
 else:
     print(f"{p} already patched")
 PYEOF
-
-# Qwen3.5 GDN linear attention + tensordict at version verl expects.
-pip install --upgrade \
-    flash-linear-attention \
-    "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
 # flash-attn ABI is a moving target against the Moonshot-custom torch build.
 # Every version we tried (base image's 2.8.1+msh, pypi.msh.team's
