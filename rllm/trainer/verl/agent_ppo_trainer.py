@@ -15,6 +15,20 @@ import torch
 from omegaconf import OmegaConf
 from verl import DataProto
 from verl.protocol import pad_dataproto_to_divisor
+
+# Monkey-patch DataProto.pop to not assert on missing keys. verl main
+# (b4c82633) has a mismatch: tu.pop(data, key=..., default=...) expects
+# missing-key-returns-default semantics, but DataProto.pop has
+# `assert key in self.batch.keys()` that fires regardless. Patch pop to
+# return None on missing (tu.pop treats None as 'not found' and uses default).
+_orig_dataproto_pop = DataProto.pop
+
+def _safe_dataproto_pop(self, key, *args, **kwargs):
+    if key not in self.batch.keys() and key not in self.non_tensor_batch and key not in self.meta_info:
+        return None
+    return _orig_dataproto_pop(self, key, *args, **kwargs)
+
+DataProto.pop = _safe_dataproto_pop
 from verl.single_controller.ray import RayWorkerGroup
 from verl.trainer.ppo.core_algos import agg_loss
 from verl.trainer.ppo.metric_utils import compute_data_metrics, compute_timing_metrics
