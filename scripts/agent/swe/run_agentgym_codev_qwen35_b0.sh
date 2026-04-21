@@ -412,7 +412,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     actor_rollout_ref.rollout.mode="async" \
     actor_rollout_ref.rollout.enforce_eager=True \
     actor_rollout_ref.rollout.temperature=1.0 \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.35 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
     actor_rollout_ref.rollout.max_num_batched_tokens=8192 \
     +actor_rollout_ref.rollout.enable_sleep_mode=False \
     actor_rollout_ref.rollout.free_cache_engine=False \
