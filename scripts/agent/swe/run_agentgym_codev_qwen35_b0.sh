@@ -102,6 +102,15 @@ if marker2 not in src:
     assert old in src, f"expected pattern 2 not found in {p}"
     src = src.replace(old, new)
 
+# Patch 3: tu.assign_non_tensor asserts TensorDict, fails on DataProto.
+# Write directly to meta_info dict instead (it's a plain dict on DataProto).
+marker3 = "# _RLLM_PATCHED_ASSIGN_NON_TENSOR"
+if marker3 not in src:
+    old = "tu.assign_non_tensor(data, **{key: val})"
+    new = f"data.meta_info[key] = val  {marker3}"
+    assert old in src, f"expected pattern 3 not found in {p}"
+    src = src.replace(old, new)
+
 p.write_text(src)
 print(f"Patched {p}")
 PYEOF
