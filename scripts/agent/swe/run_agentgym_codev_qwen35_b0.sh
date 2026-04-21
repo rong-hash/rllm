@@ -440,7 +440,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
     +rllm.agent.agent_args.scaffold=coding \
-    rllm.agent.max_steps=20 \
+    rllm.agent.max_steps=40 \
     rllm.agent.overlong_filter=True \
     rllm.agent.trajectory_timeout=5400 \
     trainer.total_epochs=5
