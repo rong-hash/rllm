@@ -374,7 +374,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.train_batch_size=8 \
     data.val_batch_size=16 \
     data.max_prompt_length=4096 \
-    data.max_response_length=30000 \
+    data.max_response_length=22500 \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
     actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
@@ -440,7 +440,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
     +rllm.agent.agent_args.scaffold=coding \
-    rllm.agent.max_steps=40 \
+    rllm.agent.max_steps=30 \
     rllm.agent.overlong_filter=True \
     rllm.agent.trajectory_timeout=5400 \
     trainer.total_epochs=5
