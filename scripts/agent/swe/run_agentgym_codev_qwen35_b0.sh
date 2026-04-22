@@ -374,7 +374,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     data.train_batch_size=8 \
     data.val_batch_size=16 \
     data.max_prompt_length=4096 \
-    data.max_response_length=22500 \
+    data.max_response_length=16000 \
     data.filter_overlong_prompts=True \
     data.filter_overlong_prompts_workers=32 \
     actor_rollout_ref.model.path=${MODEL:-"/mnt/moonfs/chenzhirong-b0/model/Qwen3.5-9B"} \
@@ -412,7 +412,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     actor_rollout_ref.rollout.mode="async" \
     actor_rollout_ref.rollout.enforce_eager=True \
     actor_rollout_ref.rollout.temperature=1.0 \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.45 \
     actor_rollout_ref.rollout.max_num_batched_tokens=8192 \
     +actor_rollout_ref.rollout.enable_sleep_mode=False \
     actor_rollout_ref.rollout.free_cache_engine=False \
@@ -440,7 +440,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     rllm.env.name=agentgym_swe \
     rllm.agent.name=sweagent \
     +rllm.agent.agent_args.scaffold=coding \
-    rllm.agent.max_steps=30 \
+    rllm.agent.max_steps=20 \
     rllm.agent.overlong_filter=True \
     rllm.agent.trajectory_timeout=5400 \
     trainer.total_epochs=5
