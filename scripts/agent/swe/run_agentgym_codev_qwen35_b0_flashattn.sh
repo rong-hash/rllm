@@ -307,11 +307,14 @@ else
     echo "=== Building flash-attn 2.7.2.post1 wheel into ${FA_CACHE_DIR} ==="
     # Stream output live — do NOT pipe into tail/grep that buffers, or
     # Launchpad will SIGINT the job after ~20 min of stdout silence.
+    # Install from GitHub directly: internal pip mirrors (pypi.ksyun.cn,
+    # pypi.msh.team) only have msh-prefixed wheels that don't match our
+    # torch 2.10+cu128 ABI, and don't have the public 2.7.2.post1 sdist.
     # `pip wheel` saves the built .whl to FA_CACHE_DIR for future jobs.
     MAX_JOBS=8 FLASH_ATTENTION_FORCE_BUILD=TRUE \
         pip wheel --no-build-isolation --no-deps --no-cache-dir --verbose \
         --wheel-dir "${FA_CACHE_DIR}" \
-        "flash-attn==2.7.2.post1"
+        "git+https://github.com/Dao-AILab/flash-attention.git@v2.7.2.post1"
     BUILT_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.2.post1-*.whl 2>/dev/null | head -1)
     if [ -z "${BUILT_FA}" ]; then
         echo "ERROR: flash-attn wheel build succeeded but no .whl found in ${FA_CACHE_DIR}"
