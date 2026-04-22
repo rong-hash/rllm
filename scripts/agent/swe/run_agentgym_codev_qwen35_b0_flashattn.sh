@@ -294,20 +294,31 @@ PYEOF
 pip uninstall -y flash-attn flash-attn-cuda 2>/dev/null || true
 
 FA_CACHE=${FA_CACHE:-"/mnt/moonfs/chenzhirong-b0/rllm-swe/wheels"}
-mkdir -p "${FA_CACHE}" 2>/dev/null || true
 TORCH_SIG=$(python3 -c "import torch; print(torch.__version__.replace('+', '-'))")
-CACHED_FA=$(ls "${FA_CACHE}"/flash_attn-2.7.2.post1-*-torch${TORCH_SIG}.whl 2>/dev/null | head -1)
+# Subdir per torch ABI signature — rebuild needed if torch version changes
+FA_CACHE_DIR="${FA_CACHE}/torch${TORCH_SIG}"
+mkdir -p "${FA_CACHE_DIR}" 2>/dev/null || true
+CACHED_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.2.post1-*.whl 2>/dev/null | head -1)
 
 if [ -n "${CACHED_FA}" ] && [ -f "${CACHED_FA}" ]; then
     echo "=== Using cached flash-attn wheel: ${CACHED_FA} ==="
     pip install --no-deps "${CACHED_FA}"
 else
-    echo "=== Building flash-attn 2.7.2.post1 from source for torch ${TORCH_SIG} ==="
+    echo "=== Building flash-attn 2.7.2.post1 wheel into ${FA_CACHE_DIR} ==="
     # Stream output live — do NOT pipe into tail/grep that buffers, or
     # Launchpad will SIGINT the job after ~20 min of stdout silence.
+    # `pip wheel` saves the built .whl to FA_CACHE_DIR for future jobs.
     MAX_JOBS=8 FLASH_ATTENTION_FORCE_BUILD=TRUE \
-        pip install --no-build-isolation --no-cache-dir --verbose \
+        pip wheel --no-build-isolation --no-deps --no-cache-dir --verbose \
+        --wheel-dir "${FA_CACHE_DIR}" \
         "flash-attn==2.7.2.post1"
+    BUILT_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.2.post1-*.whl 2>/dev/null | head -1)
+    if [ -z "${BUILT_FA}" ]; then
+        echo "ERROR: flash-attn wheel build succeeded but no .whl found in ${FA_CACHE_DIR}"
+        exit 1
+    fi
+    echo "=== Installing freshly-built wheel: ${BUILT_FA} ==="
+    pip install --no-deps "${BUILT_FA}"
 fi
 
 # Smoke-test — fail the job immediately if flash-attn still doesn't load
