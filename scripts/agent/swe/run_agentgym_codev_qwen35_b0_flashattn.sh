@@ -300,32 +300,32 @@ TORCH_SIG=$(python3 -c "import torch; print(torch.__version__.replace('+', '-'))
 # doesn't have kernels for the runtime GPU, flash-attn raises the misleading
 # "only supports Ampere GPUs or newer" error. Set here to cover Ampere + Ada +
 # Hopper so the same wheel works on A100 (8.0), L40/RTX40 (8.9), H100/H200 (9.0).
-FA_ARCHS="8.0;8.9;9.0"
+FA_ARCHS="8.0;8.9;9.0;10.0"
 FA_ARCHS_TAG=$(echo "${FA_ARCHS}" | tr '.;' '_-')
 # Cache key includes arch tag so a previously-built wheel without proper arch
 # list doesn't get reused.
 FA_CACHE_DIR="${FA_CACHE}/torch${TORCH_SIG}-archs${FA_ARCHS_TAG}"
 mkdir -p "${FA_CACHE_DIR}" 2>/dev/null || true
-CACHED_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.2.post1-*.whl 2>/dev/null | head -1)
+CACHED_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.4.post1-*.whl 2>/dev/null | head -1)
 
 if [ -n "${CACHED_FA}" ] && [ -f "${CACHED_FA}" ]; then
     echo "=== Using cached flash-attn wheel: ${CACHED_FA} ==="
     pip install --no-deps "${CACHED_FA}"
 else
-    echo "=== Building flash-attn 2.7.2.post1 wheel into ${FA_CACHE_DIR} ==="
+    echo "=== Building flash-attn 2.7.4.post1 wheel into ${FA_CACHE_DIR} ==="
     echo "=== TORCH_CUDA_ARCH_LIST=${FA_ARCHS} ==="
     # Stream output live — do NOT pipe into tail/grep that buffers, or
     # Launchpad will SIGINT the job after ~20 min of stdout silence.
     # Install from GitHub directly: internal pip mirrors (pypi.ksyun.cn,
     # pypi.msh.team) only have msh-prefixed wheels that don't match our
-    # torch 2.10+cu128 ABI, and don't have the public 2.7.2.post1 sdist.
+    # torch 2.10+cu128 ABI, and don't have the public 2.7.4.post1 sdist.
     # `pip wheel` saves the built .whl to FA_CACHE_DIR for future jobs.
     MAX_JOBS=8 FLASH_ATTENTION_FORCE_BUILD=TRUE \
         TORCH_CUDA_ARCH_LIST="${FA_ARCHS}" \
         pip wheel --no-build-isolation --no-deps --no-cache-dir --verbose \
         --wheel-dir "${FA_CACHE_DIR}" \
-        "git+https://github.com/Dao-AILab/flash-attention.git@v2.7.2.post1"
-    BUILT_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.2.post1-*.whl 2>/dev/null | head -1)
+        "git+https://github.com/Dao-AILab/flash-attention.git@v2.7.4.post1"
+    BUILT_FA=$(ls "${FA_CACHE_DIR}"/flash_attn-2.7.4.post1-*.whl 2>/dev/null | head -1)
     if [ -z "${BUILT_FA}" ]; then
         echo "ERROR: flash-attn wheel build succeeded but no .whl found in ${FA_CACHE_DIR}"
         exit 1
