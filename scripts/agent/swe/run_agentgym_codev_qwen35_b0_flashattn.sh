@@ -371,6 +371,36 @@ mask[1, 7:] = 0
 hidden = torch.randn(2, 10, 32, dtype=torch.bfloat16, device="cuda")
 res = unpad_input(hidden, mask)
 print(f"unpad_input smoke test OK: indices shape {res[1].shape}")
+
+# VARLEN AUTOGRAD smoke test — targets the specific failure seen during
+# verl update_actor forward: flash_attn_varlen_func under requires_grad=True
+# triggers CUDA illegal memory access via torch._library.custom_ops'
+# autograd_impl path on B200 (SM_100). Same Qwen3.5-9B attn-head dims.
+# log_prob forward (no_grad) works fine; this tests the backward-enabled path.
+from flash_attn import flash_attn_varlen_func
+seq = 4096  # enough to stress kernel; short enough that it's fast
+heads_q, heads_kv, head_dim = 32, 8, 128  # Qwen3.5-9B layout (GQA 32/8)
+q = torch.randn(seq, heads_q, head_dim, device="cuda", dtype=torch.bfloat16, requires_grad=True)
+k = torch.randn(seq, heads_kv, head_dim, device="cuda", dtype=torch.bfloat16, requires_grad=True)
+v = torch.randn(seq, heads_kv, head_dim, device="cuda", dtype=torch.bfloat16, requires_grad=True)
+cu_q = torch.tensor([0, seq], dtype=torch.int32, device="cuda")
+cu_k = torch.tensor([0, seq], dtype=torch.int32, device="cuda")
+try:
+    out = flash_attn_varlen_func(q, k, v, cu_q, cu_k, seq, seq, causal=True)
+    torch.cuda.synchronize()
+    print(f"varlen_fwd (requires_grad=True) OK: out.shape={out.shape}")
+    loss = out.float().sum()
+    loss.backward()
+    torch.cuda.synchronize()
+    print(f"varlen_bwd OK: q.grad.shape={q.grad.shape}")
+    print("=== VARLEN AUTOGRAD SMOKE TEST PASSED ===")
+except Exception as e:
+    print(f"=== VARLEN AUTOGRAD SMOKE TEST FAILED ===")
+    print(f"ERROR: {type(e).__name__}: {e}")
+    print("This confirms the B200 + requires_grad=True bug is in the")
+    print("flash-attn/torch layer independent of verl/FSDP/training context.")
+    # Don't exit — log and continue so training can still try (we may want
+    # the full training stack trace for comparison, and kernel may recover).
 PYEOF
 if [ $? -ne 0 ]; then
     echo "FLASH-ATTN SMOKE TEST FAILED — aborting job"
