@@ -72,6 +72,11 @@ pip install --upgrade \
     tilelang \
     "tensordict>=0.8.0,<=0.10.0,!=0.9.0"
 
+# apache-tvm-ffi 0.1.10 breaks tilelang's _NestedLoopCheckVisitor init
+# (mamba#907). tilelang's own dep range `~=0.1.0,>=0.1.2` is too loose, so
+# pin to the last-known-good before any kernel gets compiled.
+pip install --force-reinstall --no-deps 'apache-tvm-ffi==0.1.9'
+
 # Patch verl's tensordict_utils for DataProto compatibility:
 #   1. assign_non_tensor — route DataProto to meta_info (called from
 #      engine_workers + engine/fsdp/transformer_impl).
