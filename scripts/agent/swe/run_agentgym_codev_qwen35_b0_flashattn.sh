@@ -483,7 +483,7 @@ python3 -m rllm.trainer.verl.train_agent_ppo \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
     actor_rollout_ref.actor.use_torch_compile=False \
-    actor_rollout_ref.model.enable_gradient_checkpointing=True \
+    actor_rollout_ref.model.enable_gradient_checkpointing=False \
     actor_rollout_ref.actor.strategy=fsdp2 \
     actor_rollout_ref.ref.strategy=fsdp2 \
     actor_rollout_ref.actor.fsdp_config.fsdp_size=8 \

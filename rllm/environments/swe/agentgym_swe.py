@@ -403,8 +403,11 @@ class AgentGymSWEEnv(BaseEnv):
     async def _post_start_setup(self) -> None:
         """Hook for per-dataset sandbox preparation after ``sandbox.start()``.
 
-        CodeV-R1: inject per-task testbed files from ``extra_info`` so the
-        shared ``hdlc/sim:osvb`` image can serve all 1551 instances.
+        CodeV-R1: inject port_info.json + run_test.py so the agent can author
+        solution.v against a known port signature. ``gold.v`` is *not* injected
+        here — it is the reference solution and must remain invisible to the
+        agent, or RL will trivially learn to ``cat gold.v`` as the winning
+        policy. Gold is injected at reward time in ``_judge_codev_r1``.
         """
         dataset_name = self.entry.get("dataset", "")
         if dataset_name != "codev-r1":
@@ -415,7 +418,6 @@ class AgentGymSWEEnv(BaseEnv):
             capture_output=True, timeout=30, text=True, raise_on_timeout=False,
         )
         for rel_path, field in (
-            ("/testbed/verif/gold.v", "gold_v"),
             ("/testbed/verif/port_info.json", "port_info"),
             ("/testbed/verif/run_test.py", "run_test_py"),
         ):
@@ -653,6 +655,15 @@ class AgentGymSWEEnv(BaseEnv):
         eval_script = self.entry.get("eval_sh", "")
         if not eval_script:
             return {"resolved": False, "raw_log_content": "codev-r1: missing eval_sh"}
+
+        # Inject gold.v only now — it was held back from _post_start_setup
+        # to prevent the agent from reading the reference solution during
+        # rollout (reward hacking).
+        gold_v = self.entry.get("gold_v", "")
+        if gold_v:
+            await self.sandbox.ctrl.write_text("/testbed/verif/gold.v", gold_v)
+        else:
+            logger.warning("CodeV-R1 entry missing 'gold_v' field at reward time.")
 
         await self.sandbox.ctrl.write_text("/tests/test.sh", eval_script)
         val = await self.sandbox.ctrl.run(
